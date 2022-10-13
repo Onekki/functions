@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <title>虎牙</title>
+    </head>
+    <body>
+        <script src="md5.js"></script>
+        <script>
+            const getRoomDetail = async (html) => {
+                try {
+                    const streamString = html.match('stream: ({.+)\n.*?};').pop()
+                    const stream = JSON.parse(streamString)
+                    const gameLiveInfo = stream['data'][0]['gameLiveInfo']
+                    const roomId = gameLiveInfo['profileRoom']
+                    const roomName = gameLiveInfo['roomName']
+                    const avatarUrl = gameLiveInfo['avatar180']
+                    const coverUrl = gameLiveInfo['screenshot']
+                    const streamUrls = (() => {
+                        const gameStreamInfoList = stream['data'][0]['gameStreamInfoList']
+                        return gameStreamInfoList.map((gameStreamInfo) => {
+                            const sFlvUrl = gameStreamInfo['sFlvUrl']
+                            const sStreamName = gameStreamInfo['sStreamName']
+                            const sFlvUrlSuffix  = gameStreamInfo['sFlvUrlSuffix']
+                            const sFlvAntiCode = gameStreamInfo['sFlvAntiCode']
+                            const sCdnType = gameStreamInfo['sCdnType']
+                            const url = `${sFlvUrl}/${sStreamName}.${sFlvUrlSuffix}?${sFlvAntiCode}`
+                            return { sCdnType, url: formatUrl(url) }
+                        })
+                    })()
+
+                    const roomDetail = {
+                        roomId, roomName, avatarUrl, coverUrl, streamUrls
+                    }
+                    console.log(roomDetail)
+                    return {
+                        success: true,
+                        roomDetail
+                    }
+                } catch (error) {
+                    console.error(error)
+                    return {
+                        success: false,
+                        error: error.message
+                    }
+                }
+            }
+
+            const formatUrl = (url) => {
+                try {
+                    url = decodeURIComponent(url)
+                    const ib = url.split('?')
+                    const s = ib[0].split('/').pop().replace('.flv', '')
+                    const urlSearchParams = new URLSearchParams(ib.pop())
+                    const d = Object.fromEntries(urlSearchParams.entries())
+
+                    const n = `${Date.parse(new Date()) * 10000}`
+                    const u = atob(d['fm'])
+                        .replace('$0', '0')
+                        .replace('$1', s)
+                        .replace('$2', n)
+                        .replace('$3', d['wsTime'])
+                    const m = md5(u)
+
+                    const y = new URLSearchParams({
+                        wsSecret: m,
+                        wsTime: d['wsTime'],
+                        seqid: n,
+                        txyp: d['txyp'],
+                        fs: d['fs'],
+                        sphdcdn: d['sphdcdn'],
+                        sphdDC: d['sphdDC'],
+                        sphd: d['sphd'],
+                        radio: 0,
+                        u: 0,
+                        t: 100,
+                        sv: ''
+                    }).toString()
+
+                    return ib[0].replace('http:', 'https:') + '?' + y
+                } catch (error) {
+                    console.error(error)
+                    return null
+                }
+            }
+        </script>
+    </body>
+</html>
